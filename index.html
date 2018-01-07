@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>run generator</title>
+</head>
+
+<body>
+  <div id="app">
+    <button id="btn1">run generator call fetch</button>
+    <button id="btn2">run generator call XMLHttpRequest </button>
+  </div>
+  <script>
+    function run(generator) {
+      const task = generator();
+      let result = task.next();
+
+      function step() {
+        if (!result.done) {
+          if (result.value && typeof result.value.then === 'function') {
+            result.value.then(
+              (data) => {
+                result = task.next(data);
+                step();
+              },
+              (err) => {
+                result = task.throw(err);
+                step();
+              }
+            );
+          } else if (result.value && typeof result.value === 'function') {
+            result.value((err, data) => {
+              if (err) {
+                result = task.throw(err);
+                step();
+              } else {
+                result = task.next(data);
+                step();
+              }
+            });
+          } else {
+            result = task.next(result.value);
+            step();
+          }
+        }
+      }
+
+      step();
+    }
+
+    function appendImage(blob, parentNode = document.body) {
+      const img = document.createElement('img');
+      img.src = (window.URL || window.webkitURL).createObjectURL(blob);
+      parentNode.appendChild(img)
+    }
+
+    function fetchBlob(url) {
+      return function (callback) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('get', url, true);
+        xhr.responseType = 'blob';
+
+        xhr.onload = function () {
+          if (this.status == 200 || this.status == 304) {
+            const blob = this.response;
+            callback(null, blob);
+          }
+        }
+        xhr.onerror = function (err) {
+          callback(err);
+        };
+        xhr.send(null);
+      }
+    }
+
+    function* generator1() {
+      let a = yield 1;
+      console.log(a);
+      let b = yield a + 2;
+      console.log(b);
+      let imageBlob = yield fetch('https://cn.vuejs.org/images/logo.png').then(response => response.blob());
+      console.log(imageBlob)
+      appendImage(imageBlob, document.getElementById('app'));
+    }
+
+    document.getElementById('btn1').onclick = function () {
+      run(generator1);
+    };
+
+    function* generator2() {
+      let a = yield 1;
+      console.log(a);
+      let b = yield a + 2;
+      console.log(b);
+      let imageBlob = yield fetchBlob('https://cn.vuejs.org/images/logo.png');
+      console.log(imageBlob)
+      appendImage(imageBlob, document.getElementById('app'));
+    }
+
+    document.getElementById('btn2').onclick = function () {
+      run(generator2);
+    };
+
+  </script>
+</body>
+
+</html>
